@@ -1,0 +1,84 @@
+version: "3.8"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: livestream-postgres
+    environment:
+      POSTGRES_DB: livestream
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - livestream-network
+
+  redis:
+    image: redis:alpine
+    container_name: livestream-redis
+    ports:
+      - "6379:6379"
+    networks:
+      - livestream-network
+
+  server:
+    build: 
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: livestream-server
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@livestream-postgres:5432/livestream
+      REDIS_URL: redis://livestream-redis:6379
+      JWT_SECRET: your_jwt_secret_here
+      CLIENT_URL: http://localhost:5173
+    depends_on:
+      - postgres
+      - redis
+    ports:
+      - "3000:3000"
+    networks:
+      - livestream-network
+
+  nginx:
+    build: 
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "1935:1935"  # RTMP
+      - "8080:8080"  # HLS
+    volumes:
+      - ./nginx/config:/etc/nginx/conf.d:ro
+      - hls_data:/tmp/hls
+      - recordings_data:/recordings
+    environment:
+      - NGINX_UID=101
+      - NGINX_GID=101
+    depends_on:
+      - server
+    networks:
+      - livestream-network
+
+  client:
+    build: 
+      context: ./client
+      dockerfile: Dockerfile
+    container_name: livestream-client
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:3000
+    depends_on:
+      - server
+    networks:
+      - livestream-network
+
+volumes:
+  postgres_data:
+  hls_data:
+  recordings_data:
+
+networks:
+  livestream-network:
+    driver: bridge

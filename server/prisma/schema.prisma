@@ -1,0 +1,59 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        String    @id @default(uuid())
+  email     String    @unique
+  password  String?
+  name      String?
+  streams   Stream[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model Stream {
+  id           String         @id @default(uuid())
+  title        String
+  description  String?
+  streamKey    String         @unique
+  isLive       Boolean        @default(false)
+  startedAt    DateTime?
+  endedAt      DateTime?
+  recordingUrl String?
+  viewers      Int            @default(0)
+  user         User           @relation(fields: [userId], references: [id])
+  userId       String
+  analytics    StreamAnalytics?
+  chatMessages ChatMessage[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+}
+
+model StreamAnalytics {
+  id                String   @id @default(uuid())
+  stream           Stream   @relation(fields: [streamId], references: [id])
+  streamId         String   @unique
+  peakViewers      Int      @default(0)
+  totalViews       Int      @default(0)
+  averageViewTime  Float    @default(0)
+  uniqueViewers    Int      @default(0)
+  geographicData   Json?   
+  deviceStats      Json?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  content   String
+  stream    Stream   @relation(fields: [streamId], references: [id])
+  streamId  String
+  userId    String
+  createdAt DateTime @default(now())
+}
